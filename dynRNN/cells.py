@@ -9,15 +9,31 @@ class DynCell(ABC):
         pass
 
     def phaseplane(self, x_grid, y_grid, pars, input, bifurcation=False):
-        # return fig ?
+        # return fig ?        
         x_next = self.update(y_grid, x_grid, pars, input)
-        if bifurcation:
-            plt.contourf(x_grid, y_grid, x_next - y_grid, 0)
-        else:
-            plt.contourf(x_grid, y_grid, x_next[0] - y_grid, 0)
-            plt.contour(x_grid, y_grid, x_next[1] - x_grid, 0, colors="red")
 
-        plt.show()
+        f, ax = plt.subplots()
+        if bifurcation:
+            ax.contourf(x_grid, y_grid, x_next - y_grid, 0)
+        else:
+            ax.contourf(x_grid, y_grid, x_next[0] - y_grid, 0)
+            ax.contour(x_grid, y_grid, x_next[1] - x_grid, 0, colors="red")
+
+        return ax
+
+    def trajectory(self, h0, s0, pars, x_t):
+        h_l = [h0]
+        s_l = [s0]
+
+        for x in x_t:
+            next_hs = self.update(h_l[-1], s_l[-1], pars, x)
+            if type(next_hs) is not tuple:
+                h_l.append(next_hs)
+            else:
+                h_l.append(next_hs[0])
+                s_l.append(next_hs[1])
+
+        return h_l, s_l
 
 
 class GRUCell(DynCell):
