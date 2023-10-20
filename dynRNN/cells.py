@@ -18,6 +18,7 @@ class DynCell(ABC):
         else:
             ax.contourf(x_grid, y_grid, x_next[0] - y_grid, 0)
             ax.contour(x_grid, y_grid, x_next[1] - x_grid, 0, colors="red")
+            # ax.quiver(x_grid, y_grid, x_next[1] - x_grid, x_next[0] - y_grid)
 
         return ax
 
@@ -34,21 +35,45 @@ class DynCell(ABC):
                 s_l.append(next_hs[1])
 
         return h_l, s_l
+    
+
+    # def bifurcation(self, x_grid, y_grid, pars, bif_par, input, tol = 1e-2): #bif_par of the form (idx, [list of values])
+    #     f, ax = plt.subplots()
+
+    #     pars = list(pars)
+    #     for p in bif_par[1]:
+    #         pars[bif_par[0]] = p
+        
+    #         x_next = self.update(y_grid, x_grid, pars, input)
+
+    #         #DEAL WITH 2D CASE
+    #         fp_eval = (x_next[0] - y_grid).abs() + (x_next[1] - x_grid).abs()
+    #         mask = fp_eval < tol
+    #         ax.plot(torch.ones(mask.sum())*p, x_next[0][mask].flatten(), '.', markersize = 3)
+
+    #     return ax
 
 
-class GRUCell(DynCell):
+class BRCell(DynCell):
     def update(self, h_t, s_t, pars, x=0):
-        C = pars
-        h_next = (1 - C) * h_t + C * torch.tanh(x + s_t * h_t)
+        Pa, C, W, Wc, Wa = pars
+        c = torch.sigmoid(C*h_t + Wc*x)
+        a = 1 + torch.tanh(Pa*h_t + s_t + Wa*x)
+        h_next = (1 - c) * h_t + c * torch.tanh(W*x + a * h_t)
 
         return h_next
 
 
 class LSTMCell(DynCell):
     def update(self, h_t, s_t, pars, x=0):
-        A, B, C, D = pars
-        s_next = A * s_t + B * torch.tanh(x + C * h_t)
-        h_next = D * torch.tanh(s_next)
+        A, B, C, D, P, W, \
+        Wa, Wb, Wd, Wp = pars
+        a = torch.sigmoid(Wa*x + A*h_t)
+        b = torch.sigmoid(Wb*x + B*h_t)
+        d = torch.sigmoid(Wd*x + D*h_t)
+
+        s_next = a * s_t + b * torch.tanh(W * x + C * h_t)
+        h_next = d * torch.tanh(s_next) + P*h_t
 
         return h_next, s_next
 
