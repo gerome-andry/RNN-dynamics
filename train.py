@@ -18,15 +18,15 @@ PATH = Path(SCRATCH) / "GRU_dyn/Cpy1in"
 PATH.mkdir(parents=True, exist_ok=True)
 
 CONFIG = {
-    'batch_size' : [32, 64, 128],
-    'epochs' : [512],
+    'batch_size' : [64, 128, 256, 512],
+    'epochs' : [2048],
     'diff_time_per_epoch' : [10, 50, 100],
     'lr': np.geomspace(1e-1, 1e-4, 4).tolist(),
     'wd': np.geomspace(1e-4, 1e-2, 4).tolist(),
     'diag_noise': [.1, .01, .001],
     'mem_size' : [32, 64, 128],
-    'max_train_time' : [300],
-    'test_time' : [1000],
+    'max_train_time' : [100],
+    'test_time' : [300],
     'better_init_GRU': [False],
     'device': ['cuda']
 }
@@ -45,7 +45,7 @@ def build(**config):
     return rnn, decoder 
 
 
-@job(array = 10, cpus=2, gpus=1, ram="16GB", time="6:00:00")
+@job(array = 32, cpus=2, gpus=1, ram="16GB", time="6:00:00")
 def GRU_search(i):
     seed = torch.randint(100, (1,))
     torch.manual_seed(seed)
@@ -84,8 +84,8 @@ def GRU_search(i):
         rnn.train()
         decoder.train()
         for it in range(n_max_time):
-            mt = np.random.randint(100, t_train)
-            data = CopyFirstInput.get_batch(batch_sz, mt).to(dev)
+            # mt = np.random.randint(100, t_train)
+            data = CopyFirstInput.get_batch(batch_sz, t_train).to(dev)
 
             optimizer.zero_grad()
             pred = decoder(rnn(data)[1])
@@ -128,15 +128,15 @@ def GRU_search(i):
             }
         )
 
-        if loss_test < best_test_loss:
-            best_test_loss = loss_test
-            torch.save(
-                {
-                    'rnn_check':rnn.state_dict(),
-                    'decoder_check':decoder.state_dict()
-                },
-                runpath / 'checkpoint.pth',
-            )
+        # if loss_test < best_test_loss:
+        #     best_test_loss = loss_test
+        #     torch.save(
+        #         {
+        #             'rnn_check':rnn.state_dict(),
+        #             'decoder_check':decoder.state_dict()
+        #         },
+        #         runpath / 'checkpoint.pth',
+        #     )
 
     run.finish()
 
