@@ -34,7 +34,7 @@ CONFIG = {
 def build(**config):
     mz = int(config['mem_size'])
     rnn = nn.GRU(1, mz, bias = False, batch_first = True).to(config['device'])
-    decoder = nn.Linear(mz, 1)
+    decoder = nn.Linear(mz, 1).to(config['device'])
 
     if config['better_init_GRU']:
         with torch.no_grad():
@@ -83,7 +83,7 @@ def GRU_search(i):
 
         rnn.train()
         decoder.train()
-        for it in trange(n_max_time):
+        for it in range(n_max_time):
             mt = np.random.randint(100, t_train)
             data = CopyFirstInput.get_batch(batch_sz, mt).to(dev)
 
@@ -128,15 +128,15 @@ def GRU_search(i):
             }
         )
 
-        # if loss_test < best_test_loss:
-        #     best_test_loss = loss_test
-        #     torch.save(
-        #         {
-        #             'rnn_check':rnn.state_dict(),
-        #             'decoder_check':decoder.state_dict()
-        #         },
-        #         runpath / 'checkpoint.pth',
-        #     )
+        if loss_test < best_test_loss:
+            best_test_loss = loss_test
+            torch.save(
+                {
+                    'rnn_check':rnn.state_dict(),
+                    'decoder_check':decoder.state_dict()
+                },
+                runpath / 'checkpoint.pth',
+            )
 
     run.finish()
 
