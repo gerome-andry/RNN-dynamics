@@ -19,14 +19,14 @@ PATH.mkdir(parents=True, exist_ok=True)
 
 CONFIG = {
     'batch_size' : [64, 128, 256, 512],
-    'epochs' : [2048],
-    'diff_time_per_epoch' : [10, 50, 100],
+    'epochs' : [1024],
+    'diff_time_per_epoch' : [128],
     'lr': np.geomspace(1e-1, 1e-4, 4).tolist(),
     'wd': np.geomspace(1e-4, 1e-2, 4).tolist(),
     'diag_noise': [.1, .01, .001],
     'mem_size' : [32, 64, 128],
-    'max_train_time' : [20],
-    'test_time' : [100],
+    'max_train_time' : [50],
+    'test_time' : [300],
     'better_init_GRU': ['BRC'],
     'device': ['cuda']
 }
@@ -37,9 +37,9 @@ def build(**config):
     decoder = nn.Linear(mz, 1).to(config['device'])
 
     if config['better_init_GRU'] == 'BRC':
-        with torch.no_grad():
-            diag = 2*torch.eye(mz)
-            rnn.weight_hh_l0[-mz:] = diag
+        with torch.no_grad(): 
+            rnn.weight_hh_l0[-mz:] = 2*torch.eye(mz).requires_grad(False)
+
     elif config['better_init_GRU'] == 'BiGRU':
         with torch.no_grad():
             diag = nn.parameter.Parameter(2*torch.ones((mz)).to(config['device']))
@@ -49,7 +49,7 @@ def build(**config):
     return rnn, decoder 
 
 
-@job(array = 10, cpus=2, gpus=1, ram="16GB", time="6:00:00")
+@job(array = 3, cpus=2, gpus=1, ram="16GB", time="6:00:00")
 def GRU_search(i):
     seed = torch.randint(100, (1,))
     torch.manual_seed(seed)
