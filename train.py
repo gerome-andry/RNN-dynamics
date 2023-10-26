@@ -25,8 +25,8 @@ CONFIG = {
     'wd': np.geomspace(1e-4, 1e-2, 4).tolist(),
     'diag_noise': [.1, .01, .001],
     'mem_size' : [32, 64, 128],
-    'max_train_time' : [100],
-    'test_time' : [300],
+    'max_train_time' : [20],
+    'test_time' : [100],
     'better_init_GRU': [False],
     'device': ['cuda']
 }
