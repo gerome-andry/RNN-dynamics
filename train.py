@@ -40,8 +40,10 @@ def build(**config):
         with torch.no_grad():
             # diag = nn.parameter.Parameter(2*torch.ones((mz)).to(config['device']))
             # diag += config['diag_noise']*torch.randn_like(diag)
+            # rnn.weight_hh_l0[-mz:][range(mz), range(mz)] = diag
+
             diag = torch.eye(mz)
-            rnn.weight_hh_l0[-mz:][range(mz), range(mz)] = diag
+            rnn.weight_hh_l0[-mz:] = diag
 
     return rnn, decoder 
 
