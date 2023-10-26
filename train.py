@@ -14,7 +14,7 @@ from tqdm import trange
 from dynRNN.task import CopyFirstInput
 
 SCRATCH = os.environ.get("SCRATCH", ".")
-PATH = Path(SCRATCH) / "npe_conv/lz96"
+PATH = Path(SCRATCH) / "GRU_dyn/Cpy1in"
 PATH.mkdir(parents=True, exist_ok=True)
 
 CONFIG = {
@@ -50,7 +50,7 @@ def GRU_search(i):
 
     config = {key:np.random.choice(values) for key,values in CONFIG}
 
-    run = wandb.init(project="dynRNN", config=config, group=f"GRU_analysis")
+    run = wandb.init(project="dyn-RNN", config=config, group=f"GRU_analysis")
     runpath = PATH / f"runs/{run.name}_{run.id}"
     runpath.mkdir(parents=True, exist_ok=True)
 
