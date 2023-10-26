@@ -38,7 +38,7 @@ def build(**config):
 
     if config['better_init_GRU']:
         with torch.no_grad():
-            diag = 2*torch.ones((mz)).to(config['device'])
+            diag = nn.parameter.Parameter(2*torch.ones((mz)).to(config['device']))
             diag += config['diag_noise']*torch.randn_like(diag)
             rnn.weight_hh_l0[-mz:][range(mz), range(mz)] = diag
 
@@ -108,14 +108,14 @@ def GRU_search(i):
             ax = CopyFirstInput.show_pred(decoder(out_seq[0]).cpu(), data[0].cpu())
             plt.show()
 
-            run.log({"Prediction" : wandb.Image(plt)})
+            run.log({"Prediction" : wandb.Image(plt)}, step = ep)
             plt.close()
 
             mem_connect = rnn.weight_hh_l0[-config['mem_size']:]
 
             plt.imshow(mem_connect.cpu())
             plt.colorbar()
-            run.log({'Memory connect' : wandb.Image(plt)})
+            run.log({'Memory connect' : wandb.Image(plt)}, step = ep)
             plt.close()
 
         loss_t = torch.stack(loss_train).mean().item()
@@ -125,7 +125,7 @@ def GRU_search(i):
                 "train_loss":loss_t,
                 "test_loss":loss_test,
                 "epoch":ep
-            }
+            }, step = ep
         )
 
         # if loss_test < best_test_loss:
