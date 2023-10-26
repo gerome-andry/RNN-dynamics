@@ -42,7 +42,7 @@ def build(**config):
             # diag += config['diag_noise']*torch.randn_like(diag)
             # rnn.weight_hh_l0[-mz:][range(mz), range(mz)] = diag
 
-            diag = torch.eye(mz)
+            diag = 2*torch.eye(mz)
             rnn.weight_hh_l0[-mz:] = diag
 
     return rnn, decoder 
