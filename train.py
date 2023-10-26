@@ -19,12 +19,12 @@ PATH.mkdir(parents=True, exist_ok=True)
 
 CONFIG = {
     'batch_size' : [32, 64, 128],
-    'epochs' : [1024],
+    'epochs' : [512],
     'diff_time_per_epoch' : [10, 50, 100],
     'lr': np.geomspace(1e-1, 1e-4, 4).tolist(),
     'wd': np.geomspace(1e-4, 1e-2, 4).tolist(),
     'diag_noise': [.1, .01, .001],
-    'mem_size' : [32, 128, 512],
+    'mem_size' : [32, 64, 128],
     'max_train_time' : [300],
     'test_time' : [1000],
     'better_init_GRU': [False],
@@ -32,23 +32,25 @@ CONFIG = {
 }
 
 def build(**config):
-    rnn = nn.GRU(1, config['mem_size'], bias = False, batch_first = True).to(config['device'])
-    decoder = nn.Linear(config['mem_size'], 1)
+    mz = int(config['mem_size'])
+    rnn = nn.GRU(1, mz, bias = False, batch_first = True).to(config['device'])
+    decoder = nn.Linear(mz, 1)
 
     if config['better_init_GRU']:
-        diag = torch.ones((config['mem_size']))
-        diag += config['diag_noise']*torch.randn_like(diag)
-        rnn.weight_hh_l[0][-config['mem_size']:][range(config['mem_size']), range(config['mem_size'])] = diag
+        with torch.no_grad():
+            diag = torch.ones((mz))
+            diag += config['diag_noise']*torch.randn_like(diag)
+            rnn.weight_hh_l0[-mz:][range(mz), range(mz)] = diag
 
     return rnn, decoder 
 
 
-@job(array = 1, cpus=2, gpus=1, ram="16GB", time="6:00:00")
+@job(array = 10, cpus=2, gpus=1, ram="16GB", time="6:00:00")
 def GRU_search(i):
     seed = torch.randint(100, (1,))
     torch.manual_seed(seed)
 
-    config = {key:np.random.choice(values) for key,values in CONFIG}
+    config = {key:np.random.choice(values) for key,values in CONFIG.items()}
 
     run = wandb.init(project="dyn-RNN", config=config, group=f"GRU_analysis")
     runpath = PATH / f"runs/{run.name}_{run.id}"
@@ -56,7 +58,8 @@ def GRU_search(i):
 
     #model 
     rnn,decoder = build(**config)
-    size = sum(param.numel() for param in zip(rnn.parameters(), decoder.parameters()))
+    pars = list(rnn.parameters()) + list(decoder.parameters())
+    size = sum(param.numel() for param in pars)
     run.config.n_param = size
     run.config.seed = seed
 
@@ -68,19 +71,19 @@ def GRU_search(i):
 
     #optim
     optimizer = torch.optim.AdamW(
-        list(rnn.parameters()) + list(decoder.parameters()),
+        pars,
         lr = config['lr'],
         weight_decay=config['wd'],
     )
 
     dev = config['device']
-    for ep in trange(config['epoch']):
+    for ep in trange(config['epochs']):
         loss_train = []
         loss_test = 0
 
         rnn.train()
         decoder.train()
-        for it in range(n_max_time):
+        for it in trange(n_max_time):
             mt = np.random.randint(100, t_train)
             data = CopyFirstInput.get_batch(batch_sz, mt).to(dev)
 
@@ -102,9 +105,18 @@ def GRU_search(i):
 
             loss_test = l.item()
 
-            ax = CopyFirstInput.show_pred(out_seq[0], data[0])
+            ax = CopyFirstInput.show_pred(decoder(out_seq[0]).cpu(), data[0].cpu())
             plt.show()
+
             run.log({"Prediction" : wandb.Image(plt)})
+            plt.close()
+
+            mem_connect = rnn.weight_hh_l0[-config['mem_size']:]
+
+            plt.imshow(mem_connect.cpu())
+            plt.colorbar()
+            run.log({'Memory connect' : wandb.Image(plt)})
+            plt.close()
 
         loss_t = torch.stack(loss_train).mean().item()
 
@@ -116,15 +128,15 @@ def GRU_search(i):
             }
         )
 
-        if loss_test < best_test_loss:
-            best_test_loss = loss_test
-            torch.save(
-                {
-                    'rnn_check':rnn.state_dict(),
-                    'decoder_check':decoder.state_dict()
-                },
-                runpath / 'checkpoint.pth',
-            )
+        # if loss_test < best_test_loss:
+        #     best_test_loss = loss_test
+        #     torch.save(
+        #         {
+        #             'rnn_check':rnn.state_dict(),
+        #             'decoder_check':decoder.state_dict()
+        #         },
+        #         runpath / 'checkpoint.pth',
+        #     )
 
     run.finish()
 
