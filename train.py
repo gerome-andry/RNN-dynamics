@@ -38,8 +38,9 @@ def build(**config):
 
     if config['better_init_GRU']:
         with torch.no_grad():
-            diag = nn.parameter.Parameter(2*torch.ones((mz)).to(config['device']))
-            diag += config['diag_noise']*torch.randn_like(diag)
+            # diag = nn.parameter.Parameter(2*torch.ones((mz)).to(config['device']))
+            # diag += config['diag_noise']*torch.randn_like(diag)
+            diag = torch.eye(mz)
             rnn.weight_hh_l0[-mz:][range(mz), range(mz)] = diag
 
     return rnn, decoder 
