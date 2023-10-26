@@ -89,7 +89,7 @@ def GRU_search(i):
 
             optimizer.zero_grad()
             pred = decoder(rnn(data)[1])
-            l = CopyFirstInput.loss(data[:,0,:], pred)
+            l = CopyFirstInput.loss(data[:,0,:].detach(), pred)
             l.backward()
 
             loss_train.append(l.detach())
