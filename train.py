@@ -27,7 +27,7 @@ CONFIG = {
     'mem_size' : [32, 64, 128],
     'max_train_time' : [20],
     'test_time' : [100],
-    'better_init_GRU': [False],
+    'better_init_GRU': [True],
     'device': ['cuda']
 }
 
@@ -38,14 +38,14 @@ def build(**config):
 
     if config['better_init_GRU']:
         with torch.no_grad():
-            diag = torch.ones((mz)).to(config['device'])
+            diag = 2*torch.ones((mz)).to(config['device'])
             diag += config['diag_noise']*torch.randn_like(diag)
             rnn.weight_hh_l0[-mz:][range(mz), range(mz)] = diag
 
     return rnn, decoder 
 
 
-@job(array = 32, cpus=2, gpus=1, ram="16GB", time="6:00:00")
+@job(array = 3, cpus=2, gpus=1, ram="16GB", time="6:00:00")
 def GRU_search(i):
     seed = torch.randint(100, (1,))
     torch.manual_seed(seed)
