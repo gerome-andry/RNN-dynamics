@@ -27,7 +27,7 @@ CONFIG = {
     'mem_size' : [32, 64, 128],
     'max_train_time' : [20],
     'test_time' : [100],
-    'better_init_GRU': [True],
+    'better_init_GRU': ['BRC'],
     'device': ['cuda']
 }
 
@@ -36,19 +36,20 @@ def build(**config):
     rnn = nn.GRU(1, mz, bias = False, batch_first = True).to(config['device'])
     decoder = nn.Linear(mz, 1).to(config['device'])
 
-    if config['better_init_GRU']:
+    if config['better_init_GRU'] == 'BRC':
         with torch.no_grad():
-            # diag = nn.parameter.Parameter(2*torch.ones((mz)).to(config['device']))
-            # diag += config['diag_noise']*torch.randn_like(diag)
-            # rnn.weight_hh_l0[-mz:][range(mz), range(mz)] = diag
-
             diag = 2*torch.eye(mz)
             rnn.weight_hh_l0[-mz:] = diag
-
+    elif config['better_init_GRU'] == 'BiGRU':
+        with torch.no_grad():
+            diag = nn.parameter.Parameter(2*torch.ones((mz)).to(config['device']))
+            diag += config['diag_noise']*torch.randn_like(diag)
+            rnn.weight_hh_l0[-mz:][range(mz), range(mz)] = diag
+    
     return rnn, decoder 
 
 
-@job(array = 3, cpus=2, gpus=1, ram="16GB", time="6:00:00")
+@job(array = 32, cpus=2, gpus=1, ram="16GB", time="6:00:00")
 def GRU_search(i):
     seed = torch.randint(100, (1,))
     torch.manual_seed(seed)
@@ -87,13 +88,13 @@ def GRU_search(i):
         rnn.train()
         decoder.train()
         for it in range(n_max_time):
-            # mt = np.random.randint(100, t_train)
             data = CopyFirstInput.get_batch(batch_sz, t_train).to(dev)
 
-            optimizer.zero_grad()
             pred = decoder(rnn(data)[0][:,0])
             l = CopyFirstInput.loss(data[:,0,:].detach(), pred)
             l.backward()
+            optimizer.step()
+            optimizer.zero_grad()
 
             loss_train.append(l.detach())
 
@@ -103,7 +104,7 @@ def GRU_search(i):
             data = CopyFirstInput.get_batch(512, t_test).to(dev)
 
             out_seq, _ = rnn(data)
-            last_out = out_seq[:,0]
+            last_out = out_seq[:,-1]
             pred = decoder(last_out)
             l = CopyFirstInput.loss(data[:,0,:], pred)
 
@@ -132,15 +133,15 @@ def GRU_search(i):
             }, step = ep
         )
 
-        # if loss_test < best_test_loss:
-        #     best_test_loss = loss_test
-        #     torch.save(
-        #         {
-        #             'rnn_check':rnn.state_dict(),
-        #             'decoder_check':decoder.state_dict()
-        #         },
-        #         runpath / 'checkpoint.pth',
-        #     )
+        if loss_test < best_test_loss:
+            best_test_loss = loss_test
+            torch.save(
+                {
+                    'rnn_check':rnn.state_dict(),
+                    'decoder_check':decoder.state_dict()
+                },
+                runpath / 'checkpoint.pth',
+            )
 
     run.finish()
 
