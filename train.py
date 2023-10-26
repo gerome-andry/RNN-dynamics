@@ -49,7 +49,7 @@ def build(**config):
     return rnn, decoder 
 
 
-@job(array = 32, cpus=2, gpus=1, ram="16GB", time="6:00:00")
+@job(array = 10, cpus=2, gpus=1, ram="16GB", time="6:00:00")
 def GRU_search(i):
     seed = torch.randint(100, (1,))
     torch.manual_seed(seed)
@@ -90,8 +90,8 @@ def GRU_search(i):
         for it in range(n_max_time):
             data = CopyFirstInput.get_batch(batch_sz, t_train).to(dev)
 
-            pred = decoder(rnn(data)[0][:,0])
-            l = CopyFirstInput.loss(data[:,0,:].detach(), pred)
+            pred = decoder(rnn(data)[0][:,-1])
+            l = CopyFirstInput.loss(data[:,0,:], pred)
             l.backward()
             optimizer.step()
             optimizer.zero_grad()
