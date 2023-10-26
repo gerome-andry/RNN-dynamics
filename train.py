@@ -20,12 +20,12 @@ PATH.mkdir(parents=True, exist_ok=True)
 CONFIG = {
     'batch_size' : [64, 128, 256, 512],
     'epochs' : [1024],
-    'diff_time_per_epoch' : [128],
+    'diff_time_per_epoch' : [256],
     'lr': np.geomspace(1e-1, 1e-4, 4).tolist(),
     'wd': np.geomspace(1e-4, 1e-2, 4).tolist(),
     'diag_noise': [.1, .01, .001],
     'mem_size' : [32, 64, 128],
-    'max_train_time' : [50],
+    'max_train_time' : [100],
     'test_time' : [300],
     'better_init_GRU': ['BRC'],
     'device': ['cuda']
@@ -38,7 +38,7 @@ def build(**config):
 
     if config['better_init_GRU'] == 'BRC':
         with torch.no_grad(): 
-            rnn.weight_hh_l0[-mz:] = 2*torch.eye(mz).requires_grad(False)
+            rnn.weight_hh_l0[-mz:] = 2*torch.eye(mz, requires_grad=False)
 
     elif config['better_init_GRU'] == 'BiGRU':
         with torch.no_grad():
@@ -88,7 +88,9 @@ def GRU_search(i):
         rnn.train()
         decoder.train()
         for it in range(n_max_time):
-            data = CopyFirstInput.get_batch(batch_sz, t_train).to(dev)
+            tm = torch.randint(10, t_train, (1,))
+
+            data = CopyFirstInput.get_batch(batch_sz, tm).to(dev)
 
             pred = decoder(rnn(data)[0][:,-1])
             l = CopyFirstInput.loss(data[:,0,:], pred)
