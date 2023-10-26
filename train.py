@@ -91,7 +91,7 @@ def GRU_search(i):
             data = CopyFirstInput.get_batch(batch_sz, t_train).to(dev)
 
             optimizer.zero_grad()
-            pred = decoder(rnn(data)[1])
+            pred = decoder(rnn(data)[0][:,0])
             l = CopyFirstInput.loss(data[:,0,:].detach(), pred)
             l.backward()
 
@@ -102,7 +102,8 @@ def GRU_search(i):
         with torch.no_grad():
             data = CopyFirstInput.get_batch(512, t_test).to(dev)
 
-            out_seq, last_out = rnn(data)
+            out_seq, _ = rnn(data)
+            last_out = out_seq[:,0]
             pred = decoder(last_out)
             l = CopyFirstInput.loss(data[:,0,:], pred)
 
