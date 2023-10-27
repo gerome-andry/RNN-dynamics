@@ -20,7 +20,7 @@ PATH.mkdir(parents=True, exist_ok=True)
 CONFIG = {
     'batch_size' : [64, 128, 256, 512],
     'epochs' : [1024],
-    'diff_time_per_epoch' : [256],
+    'diff_time_per_epoch' : [1024],
     'lr': np.geomspace(1e-1, 1e-4, 4).tolist(),
     'wd': np.geomspace(1e-4, 1e-2, 4).tolist(),
     'diag_noise': [.1, .01, .001],
