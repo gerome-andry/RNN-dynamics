@@ -18,17 +18,16 @@ PATH = Path(SCRATCH) / "GRU_dyn/Cpy1in"
 PATH.mkdir(parents=True, exist_ok=True)
 
 CONFIG = {
-    'batch_size' : [64, 128, 256, 512],
+    'batch_size' : [256],
     'epochs' : [1024],
-    'diff_time_per_epoch' : [512],
-    'lr': np.geomspace(1e-1, 1e-4, 4).tolist(),
-    'wd': np.geomspace(1e-4, 1e-2, 4).tolist(),
-    'diag_noise': [.1, .01, .001],
-    'mem_size' : [32, 64, 128],
+    'diff_time_per_epoch' : [1024],
+    'lr': [1e-3],
+    'wd': [1e-3],
+    'mem_size' : [64],
     'max_train_time' : [100],
     'test_time' : [300],
     'better_init_GRU': ['BRC'],
-    'device': ['cpu']
+    'device': ['cuda']
 }
 
 def build(**config):
@@ -47,7 +46,7 @@ def build(**config):
     return rnn, decoder 
 
 
-@job(array = 10, cpus=2, gpus=1, ram="32GB", time="10:00:00")
+@job(array = 3, cpus=2, gpus=1, ram="32GB", time="10:00:00")
 def GRU_search(i):
     seed = torch.randint(100, (1,))
     torch.manual_seed(seed)
