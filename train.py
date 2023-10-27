@@ -28,7 +28,7 @@ CONFIG = {
     'max_train_time' : [100],
     'test_time' : [300],
     'better_init_GRU': ['BRC'],
-    'device': ['cuda']
+    'device': ['cpu']
 }
 
 def build(**config):
@@ -42,9 +42,7 @@ def build(**config):
 
     elif config['better_init_GRU'] == 'BiGRU':
         with torch.no_grad():
-            diag = nn.parameter.Parameter(2*torch.ones((mz)).to(config['device']))
-            diag += config['diag_noise']*torch.randn_like(diag)
-            rnn.weight_hh_l0[-mz:][range(mz), range(mz)] = diag
+            rnn.weight_hh_l0[-mz:][range(mz), range(mz)] += 2.
     
     return rnn, decoder 
 
@@ -62,6 +60,7 @@ def GRU_search(i):
 
     #model 
     rnn,decoder = build(**config)
+
     pars = list(rnn.parameters()) + list(decoder.parameters())
     size = sum(param.numel() for param in pars)
     run.config.n_param = size
@@ -92,6 +91,11 @@ def GRU_search(i):
 
             data = CopyFirstInput.get_batch(batch_sz, tm).to(dev)
 
+            if config['better_init_GRU'] == 'BRC':
+                mz = config['mem_size']
+                with torch.no_grad(): 
+                    rnn.weight_hh_l0[-mz:] = 2*torch.eye(mz, requires_grad=False)
+            
             pred = decoder(rnn(data)[0][:,-1])
             l = CopyFirstInput.loss(data[:,0,:], pred)
             l.backward()
