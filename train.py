@@ -47,7 +47,7 @@ def build(**config):
     return rnn, decoder 
 
 
-@job(array = 3, cpus=2, gpus=1, ram="16GB", time="6:00:00")
+@job(array = 10, cpus=2, gpus=1, ram="32GB", time="6:00:00")
 def GRU_search(i):
     seed = torch.randint(100, (1,))
     torch.manual_seed(seed)
