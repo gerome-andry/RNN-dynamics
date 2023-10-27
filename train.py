@@ -20,7 +20,7 @@ PATH.mkdir(parents=True, exist_ok=True)
 CONFIG = {
     'batch_size' : [64, 128, 256, 512],
     'epochs' : [1024],
-    'diff_time_per_epoch' : [1024],
+    'diff_time_per_epoch' : [512],
     'lr': np.geomspace(1e-1, 1e-4, 4).tolist(),
     'wd': np.geomspace(1e-4, 1e-2, 4).tolist(),
     'diag_noise': [.1, .01, .001],
@@ -47,7 +47,7 @@ def build(**config):
     return rnn, decoder 
 
 
-@job(array = 10, cpus=2, gpus=1, ram="32GB", time="6:00:00")
+@job(array = 10, cpus=2, gpus=1, ram="32GB", time="10:00:00")
 def GRU_search(i):
     seed = torch.randint(100, (1,))
     torch.manual_seed(seed)
@@ -87,9 +87,9 @@ def GRU_search(i):
         rnn.train()
         decoder.train()
         for it in range(n_max_time):
-            tm = torch.randint(10, t_train, (1,))
+            # tm = torch.randint(10, t_train, (1,))
 
-            data = CopyFirstInput.get_batch(batch_sz, tm).to(dev)
+            data = CopyFirstInput.get_batch(batch_sz, t_train).to(dev)
 
             if config['better_init_GRU'] == 'BRC':
                 mz = config['mem_size']
