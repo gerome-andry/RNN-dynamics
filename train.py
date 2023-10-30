@@ -26,7 +26,7 @@ CONFIG = {
     'mem_size' : [64],
     'max_train_time' : [100],
     'test_time' : [300],
-    'better_init_GRU': ['BRC'],
+    'better_init_GRU': ['LSTM'],
     'device': ['cuda']
 }
 
@@ -42,6 +42,12 @@ def build(**config):
     elif config['better_init_GRU'] == 'BiGRU':
         with torch.no_grad():
             rnn.weight_hh_l0[-mz:][range(mz), range(mz)] += 2.
+    
+    elif config['better_init_GRU'] == 'LSTM':
+        rnn = nn.LSTM(1, mz, bias = False, batch_first=True).to(config['device'])
+
+    elif config['better_init_GRU'] == 'BiLSTM':
+        rnn = nn.LSTM(1, mz, bias = False, batch_first=True).to(config['device'])
     
     return rnn, decoder 
 
