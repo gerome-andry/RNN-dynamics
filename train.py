@@ -26,29 +26,27 @@ CONFIG = {
     'mem_size' : [64],
     'max_train_time' : [100],
     'test_time' : [300],
-    'better_init_GRU': ['LSTM'],
+    'better_init_GRU': ['BiLSTM'],
     'device': ['cuda']
 }
 
 def build(**config):
     mz = int(config['mem_size'])
-    rnn = nn.GRU(1, mz, bias = False, batch_first = True).to(config['device'])
+    if 'LSTM' in config['better_init_GRU']:
+        rnn = nn.LSTM(1, mz, bias = False, batch_first=True).to(config['device'])
+    else:        
+        rnn = nn.GRU(1, mz, bias = False, batch_first = True).to(config['device'])
+    
     decoder = nn.Linear(mz, 1).to(config['device'])
 
     if config['better_init_GRU'] == 'BRC':
         with torch.no_grad(): 
             rnn.weight_hh_l0[-mz:] = 2*torch.eye(mz, requires_grad=False)
 
-    elif config['better_init_GRU'] == 'BiGRU':
+    elif 'Bi' in config['better_init_GRU']:
         with torch.no_grad():
             rnn.weight_hh_l0[-mz:][range(mz), range(mz)] += 2.
-    
-    elif config['better_init_GRU'] == 'LSTM':
-        rnn = nn.LSTM(1, mz, bias = False, batch_first=True).to(config['device'])
-
-    elif config['better_init_GRU'] == 'BiLSTM':
-        rnn = nn.LSTM(1, mz, bias = False, batch_first=True).to(config['device'])
-    
+        
     return rnn, decoder 
 
 
