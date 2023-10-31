@@ -125,7 +125,7 @@ def GRU_search(i):
             run.log({"Prediction" : wandb.Image(plt)}, step = ep)
             plt.close()
 
-            mem_connect = rnn.weight_hh_l0[-config['mem_size']:]
+            mem_connect = rnn.weight_hh_l0[2*config['mem_size']:3*config['mem_size']]
 
             plt.imshow(mem_connect.cpu())
             plt.colorbar()
