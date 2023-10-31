@@ -11,9 +11,12 @@ class DynCell(ABC):
     def phaseplane(self, x_grid, y_grid, pars, input, bifurcation=False):
         # return fig ?        
         x_next = self.update(y_grid, x_grid, pars, input)
-
+        
         f, ax = plt.subplots()
         if bifurcation:
+            if type(x_next) is tuple:
+                x_next = x_next[0]
+                
             ax.contourf(x_grid, y_grid, x_next - y_grid, 0)
         else:
             ax.contourf(x_grid, y_grid, x_next[0] - y_grid, 0)
@@ -53,12 +56,20 @@ class DynCell(ABC):
 
     #     return ax
 
+class GRUCell(DynCell):
+    def update(self, h_t, s_t, pars, x=0):
+        Pa, C, W, Wc, Wa = pars
+        c = torch.sigmoid(C*h_t + Wc*x)
+        a = torch.sigmoid(Pa*h_t + Wa*x)
+        h_next = (1 - c) * h_t + c * torch.tanh(W*x + a *s_t* h_t)
 
+        return h_next
+    
 class BRCell(DynCell):
     def update(self, h_t, s_t, pars, x=0):
         Pa, C, W, Wc, Wa = pars
         c = torch.sigmoid(C*h_t + Wc*x)
-        a = 1 + torch.tanh(Pa*h_t + s_t + Wa*x)
+        a = 1 + torch.tanh(s_t*h_t + Wa*x)
         h_next = (1 - c) * h_t + c * torch.tanh(W*x + a * h_t)
 
         return h_next

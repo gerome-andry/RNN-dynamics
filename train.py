@@ -45,7 +45,7 @@ def build(**config):
 
     elif 'Bi' in config['better_init_GRU']:
         with torch.no_grad():
-            rnn.weight_hh_l0[-mz:][range(mz), range(mz)] += 2.
+            rnn.weight_hh_l0[2*mz:3*mz][range(mz), range(mz)] += 2.
         
     return rnn, decoder 
 
