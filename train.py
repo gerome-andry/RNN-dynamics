@@ -48,6 +48,7 @@ def build(**config):
         with torch.no_grad():
             rnn.weight_hh_l0[2*mz:3*mz][range(mz), range(mz)] += 2.
             if 'LSTM' in config['better_init_GRU']:
+                rnn.weight_hh_l0[2*mz:3*mz][range(mz), range(mz)] -= 1.
                 rnn.bias_hh_l0 *= 0
                 rnn.bias_hh_l0 += 5
                 rnn.bias_hh_l0.requires_grad = False
