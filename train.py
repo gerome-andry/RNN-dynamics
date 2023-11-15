@@ -33,7 +33,8 @@ CONFIG = {
 def build(**config):
     mz = int(config['mem_size'])
     if 'LSTM' in config['better_init_GRU']:
-        rnn = nn.LSTM(1, mz, bias = False, batch_first=True).to(config['device'])
+        bias = 'Bi' in config['better_init_GRU']
+        rnn = nn.LSTM(1, mz, bias = bias, batch_first=True).to(config['device'])
     else:        
         rnn = nn.GRU(1, mz, bias = False, batch_first = True).to(config['device'])
     
@@ -46,6 +47,12 @@ def build(**config):
     elif 'Bi' in config['better_init_GRU']:
         with torch.no_grad():
             rnn.weight_hh_l0[2*mz:3*mz][range(mz), range(mz)] += 2.
+            if 'LSTM' in config['better_init_GRU']:
+                rnn.bias_hh_l0 *= 0
+                rnn.bias_hh_l0 += 5
+                rnn.bias_hh_l0.requires_grad = False
+                rnn.bias_ih_l0 *= 0
+                rnn.bias_ih_l0.requires_grad = False
         
     return rnn, decoder 
 

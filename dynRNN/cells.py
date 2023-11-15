@@ -16,11 +16,10 @@ class DynCell(ABC):
         if bifurcation:
             if type(x_next) is tuple:
                 x_next = x_next[0]
-                
-            ax.contourf(x_grid, y_grid, x_next - y_grid, 0)
+            ax.contourf(x_grid.numpy(), y_grid.numpy(), (x_next - y_grid), 0)
         else:
-            ax.contourf(x_grid, y_grid, x_next[0] - y_grid, 0)
-            ax.contour(x_grid, y_grid, x_next[1] - x_grid, 0, colors="red")
+            ax.contourf(x_grid.numpy(), y_grid.numpy(), x_next[0] - y_grid, 0)
+            ax.contour(x_grid.numpy(), y_grid.numpy(), x_next[1] - x_grid, 0, colors="red")
             # ax.quiver(x_grid, y_grid, x_next[1] - x_grid, x_next[0] - y_grid)
 
         return ax
@@ -34,8 +33,8 @@ class DynCell(ABC):
             if type(next_hs) is not tuple:
                 h_l.append(next_hs)
             else:
-                h_l.append(next_hs[0])
-                s_l.append(next_hs[1])
+                h_l.append(next_hs[0].squeeze())
+                s_l.append(next_hs[1].squeeze())
 
         return h_l, s_l
     
