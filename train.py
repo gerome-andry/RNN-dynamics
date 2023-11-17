@@ -19,14 +19,13 @@ PATH.mkdir(parents=True, exist_ok=True)
 
 CONFIG = {
     'batch_size' : [256],
-    'epochs' : [1024],
-    'diff_time_per_epoch' : [1024],
+    'epochs' : [512],
+    'diff_time_per_epoch' : [512],
     'lr': [1e-3],
-    'wd': [1e-3],
     'mem_size' : [64],
     'max_train_time' : [100],
     'test_time' : [300],
-    'better_init_GRU': ['BiLSTM'],
+    'better_init_GRU': ['BRC'],
     'device': ['cuda']
 }
 
@@ -48,13 +47,11 @@ def build(**config):
         with torch.no_grad():
             rnn.weight_hh_l0[2*mz:3*mz][range(mz), range(mz)] += 2.
             if 'LSTM' in config['better_init_GRU']:
-                rnn.weight_hh_l0[2*mz:3*mz][range(mz), range(mz)] -= 1.
-                rnn.bias_hh_l0 *= 0
-                rnn.bias_hh_l0 += 5
-                rnn.bias_hh_l0.requires_grad = False
-                rnn.bias_ih_l0 *= 0
-                rnn.bias_ih_l0.requires_grad = False
-        
+                rnn.bias_hh_l0[-mz:] += 5 #put dt to 1
+                rnn.bias_hh_l0[mz:2*mz] = -rnn.bias_hh_l0[-mz:].clone() #put at to 0                
+                if 'chrono' in config['better_init_GRU']:
+                    rnn.weight_hh_l0[2*mz:3*mz][range(mz),range(mz)] -= 2.
+
     return rnn, decoder 
 
 
@@ -84,10 +81,9 @@ def GRU_search(i):
     best_test_loss = torch.inf
 
     #optim
-    optimizer = torch.optim.AdamW(
+    optimizer = torch.optim.Adam(
         pars,
         lr = config['lr'],
-        weight_decay=config['wd'],
     )
 
     dev = config['device']
@@ -98,9 +94,9 @@ def GRU_search(i):
         rnn.train()
         decoder.train()
         for it in range(n_max_time):
-            # tm = torch.randint(10, t_train, (1,))
+            tm = torch.randint(t_train - 5, t_train, (1,))
 
-            data = CopyFirstInput.get_batch(batch_sz, t_train).to(dev)
+            data = CopyFirstInput.get_batch(batch_sz, tm).to(dev)
 
             if config['better_init_GRU'] == 'BRC':
                 mz = config['mem_size']
@@ -169,7 +165,6 @@ if __name__ == '__main__':
         backend='slurm',
         settings={'export':'ALL'},
         env=[
-            "conda activate dynRNN",
             "export WANDB_SILENT=true",
         ],
     )
