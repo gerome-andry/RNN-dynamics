@@ -25,17 +25,16 @@ CONFIG = {
     'mem_size' : [64],
     'max_train_time' : [100],
     'test_time' : [300],
-    'better_init_GRU': ['BRC'],
+    'better_init_GRU': ['LSTM'],
     'device': ['cuda']
 }
 
 def build(**config):
     mz = int(config['mem_size'])
     if 'LSTM' in config['better_init_GRU']:
-        bias = 'Bi' in config['better_init_GRU']
-        rnn = nn.LSTM(1, mz, bias = bias, batch_first=True).to(config['device'])
+        rnn = nn.LSTM(1, mz, batch_first=True).to(config['device'])
     else:        
-        rnn = nn.GRU(1, mz, bias = False, batch_first = True).to(config['device'])
+        rnn = nn.GRU(1, mz, batch_first = True).to(config['device'])
     
     decoder = nn.Linear(mz, 1).to(config['device'])
 
@@ -47,8 +46,8 @@ def build(**config):
         with torch.no_grad():
             rnn.weight_hh_l0[2*mz:3*mz][range(mz), range(mz)] += 2.
             if 'LSTM' in config['better_init_GRU']:
-                rnn.bias_hh_l0[-mz:] += 5 #put dt to 1
-                rnn.bias_hh_l0[mz:2*mz] = -rnn.bias_hh_l0[-mz:].clone() #put at to 0                
+                rnn.bias_hh_l0[mz:2*mz] += 5 #put dt to 1
+                rnn.bias_hh_l0[:mz] = -rnn.bias_hh_l0[-mz:].clone() #put at to 0                
                 if 'chrono' in config['better_init_GRU']:
                     rnn.weight_hh_l0[2*mz:3*mz][range(mz),range(mz)] -= 2.
 
