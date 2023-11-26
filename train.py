@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import numpy as np 
 
-from dynRNN.task import CopyFirstInput
+from dynRNN.task import CopyFirstInput, CopyFirstInputTh
 import wandb 
 from dawgz import job, schedule
 import os 
@@ -25,7 +25,7 @@ CONFIG = {
     'mem_size' : [64],
     'max_train_time' : [100],
     'test_time' : [300],
-    'better_init_GRU': ['LSTM'],
+    'better_init_GRU': ['BiLSTMchronoTh'],
     'device': ['cuda']
 }
 
@@ -46,7 +46,8 @@ def build(**config):
         with torch.no_grad():
             rnn.weight_hh_l0[2*mz:3*mz][range(mz), range(mz)] += 2.
             if 'LSTM' in config['better_init_GRU']:
-                rnn.bias_hh_l0[mz:2*mz] += 5 #put dt to 1
+                bias = 2
+                rnn.bias_hh_l0[mz:2*mz] += bias #put dt to 1
                 rnn.bias_hh_l0[:mz] = -rnn.bias_hh_l0[-mz:].clone() #put at to 0                
                 if 'chrono' in config['better_init_GRU']:
                     rnn.weight_hh_l0[2*mz:3*mz][range(mz),range(mz)] -= 2.
@@ -93,17 +94,17 @@ def GRU_search(i):
         rnn.train()
         decoder.train()
         for it in range(n_max_time):
-            tm = torch.randint(t_train - 5, t_train, (1,))
+            tm = torch.randint(t_train - 10, t_train, (1,))
 
-            data = CopyFirstInput.get_batch(batch_sz, tm).to(dev)
+            data = CopyFirstInputTh.get_batch(batch_sz, tm).to(dev)
 
-            if config['better_init_GRU'] == 'BRC':
+            if 'BRC' in config['better_init_GRU']:
                 mz = config['mem_size']
                 with torch.no_grad(): 
                     rnn.weight_hh_l0[-mz:] = 2*torch.eye(mz, requires_grad=False)
             
             pred = decoder(rnn(data)[0][:,-1])
-            l = CopyFirstInput.loss(data[:,0,:], pred)
+            l = CopyFirstInputTh.loss(data[:,:,0], pred)
             l.backward()
             optimizer.step()
             optimizer.zero_grad()
@@ -113,16 +114,16 @@ def GRU_search(i):
         rnn.eval()
         decoder.eval()
         with torch.no_grad():
-            data = CopyFirstInput.get_batch(512, t_test).to(dev)
+            data = CopyFirstInputTh.get_batch(512, t_test).to(dev)
 
             out_seq, _ = rnn(data)
             last_out = out_seq[:,-1]
             pred = decoder(last_out)
-            l = CopyFirstInput.loss(data[:,0,:], pred)
+            l = CopyFirstInputTh.loss(data[:,:,0], pred)
 
             loss_test = l.item()
 
-            ax = CopyFirstInput.show_pred(decoder(out_seq[0]).cpu(), data[0].cpu())
+            ax = CopyFirstInputTh.show_pred(decoder(out_seq[0]).cpu(), data[0].cpu())
             plt.show()
 
             run.log({"Prediction" : wandb.Image(plt)}, step = ep)

@@ -78,8 +78,8 @@ class LSTMCell(DynCell):
     def update(self, h_t, s_t, pars, x=0):
         A, B, C, D, P, W, \
         Wa, Wb, Wd, Wp = pars
-        a = torch.sigmoid(Wa*x + A*h_t)
-        b = torch.sigmoid(Wb*x + B*h_t)
+        a = torch.sigmoid(Wa*x + A*h_t + 5)
+        b = torch.sigmoid(Wb*x + B*h_t - 5)
         d = torch.sigmoid(Wd*x + D*h_t)
 
         s_next = a * s_t + b * torch.tanh(W * x + C * h_t)
