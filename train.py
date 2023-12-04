@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import numpy as np 
 
-from dynRNN.task import CopyFirstInput, CopyFirstInputTh
+from dynRNN.task import CopyFirstInput, CopyFirstInputTh, FreqDiscr
 import wandb 
 from dawgz import job, schedule
 import os 
@@ -22,10 +22,10 @@ CONFIG = {
     'epochs' : [512],
     'diff_time_per_epoch' : [512],
     'lr': [1e-3],
-    'mem_size' : [64],
+    'mem_size' : [128],
     'max_train_time' : [100],
     'test_time' : [300],
-    'better_init_GRU': ['BiLSTMchronoTh'],
+    'better_init_GRU': ['2BiGRUf'],
     'device': ['cuda']
 }
 
@@ -45,6 +45,9 @@ def build(**config):
     elif 'Bi' in config['better_init_GRU']:
         with torch.no_grad():
             rnn.weight_hh_l0[2*mz:3*mz][range(mz), range(mz)] += 2.
+            if '2' in config['better_init_GRU']:
+                rnn.weight_hh_l0[2*mz:3*mz][range(mz//2), range(mz//2)] -= 2.
+
             if 'LSTM' in config['better_init_GRU']:
                 bias = 2
                 rnn.bias_hh_l0[mz:2*mz] += bias #put dt to 1
@@ -76,8 +79,8 @@ def GRU_search(i):
 
     batch_sz = config['batch_size']
     n_max_time = config['diff_time_per_epoch']
-    t_train = config['max_train_time']
-    t_test = config['test_time']
+#     t_train = config['max_train_time']
+#     t_test = config['test_time']
     best_test_loss = torch.inf
 
     #optim
@@ -94,37 +97,46 @@ def GRU_search(i):
         rnn.train()
         decoder.train()
         for it in range(n_max_time):
-            tm = torch.randint(t_train - 10, t_train, (1,))
+#             tm = torch.randint(t_train - 10, t_train, (1,))
 
-            data = CopyFirstInputTh.get_batch(batch_sz, tm).to(dev)
-
+#             data = CopyFirstInput.get_batch(batch_sz, tm).to(dev)
+            data,lab = FreqDiscr.get_batch(batch_sz)
+            data = data.to(dev)
+            lab = lab.to(dev)
+    
             if 'BRC' in config['better_init_GRU']:
                 mz = config['mem_size']
                 with torch.no_grad(): 
                     rnn.weight_hh_l0[-mz:] = 2*torch.eye(mz, requires_grad=False)
             
-            pred = decoder(rnn(data)[0][:,-1])
-            l = CopyFirstInputTh.loss(data[:,:,0], pred)
+            pred = decoder(rnn(data)[0])
+#             l = CopyFirstInput.loss(data[:,0], pred)
+            l = FreqDiscr.loss(pred.squeeze(-1),lab)
             l.backward()
             optimizer.step()
             optimizer.zero_grad()
-
+            
             loss_train.append(l.detach())
 
         rnn.eval()
         decoder.eval()
         with torch.no_grad():
-            data = CopyFirstInputTh.get_batch(512, t_test).to(dev)
-
+#             data = CopyFirstInput.get_batch(512, t_test).to(dev)
+            data,lab = FreqDiscr.get_batch(1)
+            data = data.to(dev)
+            lab = lab.to(dev)
+            
             out_seq, _ = rnn(data)
-            last_out = out_seq[:,-1]
-            pred = decoder(last_out)
-            l = CopyFirstInputTh.loss(data[:,:,0], pred)
+#             last_out = out_seq[:,-1]
+#             pred = decoder(last_out)
+#             l = CopyFirstInput.loss(data[:,0], pred)
 
-            loss_test = l.item()
+#             loss_test = l.item()
 
-            ax = CopyFirstInputTh.show_pred(decoder(out_seq[0]).cpu(), data[0].cpu())
-            plt.show()
+#             ax = CopyFirstInput.show_pred(decoder(out_seq[0]).cpu(), data[0].cpu())
+#             plt.show()
+
+            ax = FreqDiscr.show_pred(decoder(out_seq[0]).cpu(),lab[0].cpu(),data[0].cpu())
 
             run.log({"Prediction" : wandb.Image(plt)}, step = ep)
             plt.close()
@@ -141,13 +153,14 @@ def GRU_search(i):
         run.log(
             {
                 "train_loss":loss_t,
-                "test_loss":loss_test,
+#                 "test_loss":loss_test,
                 "epoch":ep
             }, step = ep
         )
 
-        if loss_test < best_test_loss:
-            best_test_loss = loss_test
+        if loss_t < best_test_loss:#loss_test < best_test_loss:
+#             best_test_loss = loss_test
+            best_test_loss = loss_t
             torch.save(
                 {
                     'rnn_check':rnn.state_dict(),
