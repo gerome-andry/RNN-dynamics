@@ -124,6 +124,7 @@ class FreqDiscr(Task):
         return ev
 
 class IntervalProductionTask(Task):
+    ### TODO : In the paper the go cue and signal are sent thorugh two different neurons. Sequence should therefore be 2 dimensional. Current implementation is 1 dimensional.
     # In this task:
     # 1 - the network perceives the interval T between the first two pulses,
     # 2 - mantains the interval during a delay of variable duration t2,
@@ -140,19 +141,29 @@ class IntervalProductionTask(Task):
         t2_len = torch.randint(min_t2_length, max_t2_length, (n, 1))
 
         batch_indices = torch.arange(n).unsqueeze(1)  # Shape: (n, 1)
-        
+
         t1_indices = t1_len + torch.zeros((n, max_sequence_length), dtype=torch.long)
         T_indices = t1_indices + T_len
         t2_indices = T_indices + t2_len
         target_indices = t2_indices + T_len
-        
+
         input_sequences = torch.zeros((n, max_sequence_length, 1))
-        input_sequences[batch_indices, t1_indices] = 1
-        input_sequences[batch_indices, T_indices] = 1
-        input_sequences[batch_indices, t2_indices] = -1
-        
         target_outputs = torch.zeros((n, max_sequence_length, 1))
-        target_outputs[batch_indices, target_indices] = 1
+
+        # Create a mask for setting the continuous range between t1 and T to 1
+        mask = (torch.arange(max_sequence_length).unsqueeze(0) >= t1_indices) & (torch.arange(max_sequence_length).unsqueeze(0) < T_indices)
+        mask = mask.unsqueeze(-1).to(torch.float)
+
+        # Set the continuous range between t1 and T to 1
+        input_sequences += mask
+
+        input_sequences[batch_indices, t2_indices] = -1 # go cue
+        
+        target_mask = (torch.arange(max_sequence_length).unsqueeze(0) >= t2_indices) & (torch.arange(max_sequence_length).unsqueeze(0) < target_indices)
+        target_mask = target_mask.unsqueeze(-1).to(torch.float)
+
+        # Set the continuous range between t2_indices and target_indices to 1 in the target sequence
+        target_outputs += target_mask
 
         return input_sequences, target_outputs
     
@@ -189,6 +200,8 @@ class IntervalProductionTask(Task):
         plt.show()
         
 class IntervalComparisonTask(Task):
+    ### TODO : In the paper the go cue and signal are sent thorugh two different neurons. Sequence should therefore be 2 dimensional. Current implementation is 1 dimensional.
+    
     # In this task:
     # 1 - the network perceives the interval T1 between the first two pulses,
     # 2 - mantains the interval during a delay of variable duration t2,
@@ -265,13 +278,30 @@ class IntervalComparisonTask(Task):
             plt.legend()
         plt.tight_layout()
         plt.show()
+        
+class TimedSpatialReproductionTask(Task):
+    
+    def get_batch(n, min_t1_length=10, max_t1_length=20,
+                     min_T_length=10, max_T_length=100,
+                     min_t2_length=10, max_t2_length=100,
+                     min_t3_length= 10, max_t3_length=20,
+                     t_padding=10):
 
+        return None
+
+    def loss(target, pred):
+        return 0
+    
+    def plot_sequences(batch_input, batch_target):
+        return None
+
+    
 if __name__ == '__main__':
     
     ### test of Interval production task
-    #batch_input, batch_target = IntervalProductionTask.get_batch(5)
-    #IntervalProductionTask.plot_sequences(batch_input,batch_target)
+    batch_input, batch_target = IntervalProductionTask.get_batch(5)
+    IntervalProductionTask.plot_sequences(batch_input,batch_target)
     
     ### test of Interval comparison task
-    batch_input, batch_target = IntervalComparisonTask.get_batch(5)
-    IntervalComparisonTask.plot_sequences(batch_input,batch_target)
+    #batch_input, batch_target = IntervalComparisonTask.get_batch(5)
+    #IntervalComparisonTask.plot_sequences(batch_input,batch_target)
