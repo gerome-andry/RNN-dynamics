@@ -137,7 +137,7 @@ def GRU_search(i):
 #             ax = CopyFirstInput.show_pred(decoder(out_seq[0]).cpu(), data[0].cpu())
 #             plt.show()
 
-            ax = task.show_pred(decoder(out_seq[0]).cpu(),lab[0].cpu())#,data[0].cpu())
+            ax = task.show_pred(decoder(out_seq).cpu(),lab.cpu())#,data[0].cpu())
 
             run.log({"Prediction" : wandb.Image(plt)}, step = ep)
             plt.close()
