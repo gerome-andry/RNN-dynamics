@@ -112,7 +112,7 @@ def GRU_search(i):
             
             pred = decoder(rnn(data)[0])
 #             l = CopyFirstInput.loss(data[:,0], pred)
-            l = task.loss(pred.squeeze(-1),lab)
+            l = task.loss(pred,lab)
             l.backward()
             optimizer.step()
             optimizer.zero_grad()
