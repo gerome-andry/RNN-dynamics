@@ -27,7 +27,8 @@ class CopyFirstInput(Task):
         ax.legend()
         
         return ax
-    
+
+  
 class CopyFirstInputTh(Task):        
     def get_batch(n, max_time):
         return torch.randn((n,max_time,1))
@@ -188,7 +189,7 @@ class IntervalProductionTask(Task):
     
     def plot_sequences(batch_input, batch_target):
         n = batch_input.size(0)
-        plt.figure(figsize=(10, 5))
+        plt.figure(figsize=(10, 10))
         for i in range(n):
             plt.subplot(n, 1, i+1)
             plt.title(f"Sequence {i+1}")

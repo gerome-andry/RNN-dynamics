@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import numpy as np 
 
-from dynRNN.task import CopyFirstInput, CopyFirstInputTh, FreqDiscr
+from dynRNN.task import *
 import wandb 
 from dawgz import job, schedule
 import os 
@@ -10,8 +10,6 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 
 from tqdm import trange
-
-from dynRNN.task import CopyFirstInput
 
 SCRATCH = os.environ.get("SCRATCH", ".")
 PATH = Path(SCRATCH) / "GRU_dyn/Cpy1in"
@@ -25,8 +23,9 @@ CONFIG = {
     'mem_size' : [128],
     'max_train_time' : [100],
     'test_time' : [300],
-    'better_init_GRU': ['2BiGRUf'],
-    'device': ['cuda']
+    'better_init_GRU': ['BiGRUCmp'],
+    'device': ['cuda'],
+    'task': [IntervalComparisonTask]
 }
 
 def build(**config):
@@ -58,7 +57,7 @@ def build(**config):
     return rnn, decoder 
 
 
-@job(array = 3, cpus=2, gpus=1, ram="32GB", time="10:00:00")
+@job(array = 3, cpus=2, gpus=1, ram="32GB", time="5:00:00")
 def GRU_search(i):
     seed = torch.randint(100, (1,))
     torch.manual_seed(seed)
@@ -77,6 +76,7 @@ def GRU_search(i):
     run.config.n_param = size
     run.config.seed = seed
 
+    task = config['task']
     batch_sz = config['batch_size']
     n_max_time = config['diff_time_per_epoch']
 #     t_train = config['max_train_time']
@@ -100,7 +100,8 @@ def GRU_search(i):
 #             tm = torch.randint(t_train - 10, t_train, (1,))
 
 #             data = CopyFirstInput.get_batch(batch_sz, tm).to(dev)
-            data,lab = FreqDiscr.get_batch(batch_sz)
+            # data,lab = FreqDiscr.get_batch(batch_sz)
+            data, lab = task.get_batch(batch_sz)
             data = data.to(dev)
             lab = lab.to(dev)
     
@@ -111,7 +112,7 @@ def GRU_search(i):
             
             pred = decoder(rnn(data)[0])
 #             l = CopyFirstInput.loss(data[:,0], pred)
-            l = FreqDiscr.loss(pred.squeeze(-1),lab)
+            l = task.loss(pred.squeeze(-1),lab)
             l.backward()
             optimizer.step()
             optimizer.zero_grad()
@@ -122,7 +123,7 @@ def GRU_search(i):
         decoder.eval()
         with torch.no_grad():
 #             data = CopyFirstInput.get_batch(512, t_test).to(dev)
-            data,lab = FreqDiscr.get_batch(1)
+            data,lab = task.get_batch(1)
             data = data.to(dev)
             lab = lab.to(dev)
             
@@ -136,7 +137,7 @@ def GRU_search(i):
 #             ax = CopyFirstInput.show_pred(decoder(out_seq[0]).cpu(), data[0].cpu())
 #             plt.show()
 
-            ax = FreqDiscr.show_pred(decoder(out_seq[0]).cpu(),lab[0].cpu(),data[0].cpu())
+            ax = task.show_pred(decoder(out_seq[0]).cpu(),lab[0].cpu())#,data[0].cpu())
 
             run.log({"Prediction" : wandb.Image(plt)}, step = ep)
             plt.close()
