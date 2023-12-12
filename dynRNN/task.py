@@ -245,7 +245,7 @@ class IntervalComparisonTask(Task):
         comparison_result = torch.where(torch.gt(T1_len, T2_len), 1, -1)
         
         for i in range(n):
-            target_outputs[i, t3_indices[i]] = comparison_result[i].float() 
+            target_outputs[i, t3_indices[i][0]:] = comparison_result[i].float() 
 
         return input_sequences, target_outputs
     
