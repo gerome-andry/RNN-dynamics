@@ -123,6 +123,7 @@ class FreqDiscr(Task):
 
         return ev
 
+    
 class IntervalProductionTask(Task):
     ### TODO : In the paper the go cue and signal are sent thorugh two different neurons. Sequence should therefore be 2 dimensional. Current implementation is 1 dimensional.
     # In this task:
@@ -198,6 +199,7 @@ class IntervalProductionTask(Task):
             plt.legend()
         plt.tight_layout()
         plt.show()
+        
         
 class IntervalComparisonTask(Task):
     ### TODO : In the paper the go cue and signal are sent thorugh two different neurons. Sequence should therefore be 2 dimensional. Current implementation is 1 dimensional.
