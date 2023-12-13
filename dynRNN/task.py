@@ -28,7 +28,6 @@ class CopyFirstInput(Task):
         
         return ax
 
-  
 class CopyFirstInputTh(Task):        
     def get_batch(n, max_time):
         return torch.randn((n,max_time,1))
@@ -84,7 +83,6 @@ class FreqDiscr(Task):
         return data.unsqueeze(-1),label
         
     def loss(target, pred):
-        print(target.shape,pred.shape)
         return ((target - pred)**2).mean()
     
     def show_pred(pred_seq, target_seq, input_seq, ax = None):
@@ -124,7 +122,39 @@ class FreqDiscr(Task):
 
         return ev
 
+#
+# The system receives a sequence of digital inputs of variable size
+class SequenceIngestion(Task):
+    def get_batch(n, seq_len=300, t_tok=10, max_val=4):
+        L_MAX = (seq_len-2*t_tok)//(2*t_tok)
+
+        seq_in = torch.zeros((n,seq_len))
+        seq_tg = torch.zeros((n,seq_len))
+        for i in range(n):
+            n_tok = int(torch.randint(low=1,high=L_MAX+1,size=(1,)))
+
+            a = torch.randint(low=1, high=max_val+1, size=(n_tok,1)).float()
+            a = a.repeat(1,t_tok).flatten()
+
+            seq_in[i,t_tok:(n_tok+1)*t_tok] = a
+            seq_tg[i,(n_tok+2)*t_tok:(2*n_tok+2)*t_tok] = a
+        
+        return seq_in.unsqueeze(-1), seq_tg.unsqueeze(-1)
     
+    def loss(target, pred):
+        return ((target-pred)**2).mean()
+    
+    def show_pred(pred, target, input_s):
+        f, ax = plt.subplots()
+        
+        ax.plot(input_s, label='input')
+        ax.plot(pred, label='pred')
+        ax.plot(target,'r--', label='target')
+        ax.legend()
+        
+        return ax
+
+        
 class IntervalProductionTask(Task):
     ### TODO : In the paper the go cue and signal are sent thorugh two different neurons. Sequence should therefore be 2 dimensional. Current implementation is 1 dimensional.
     # In this task:

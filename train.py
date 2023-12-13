@@ -23,9 +23,9 @@ CONFIG = {
     'mem_size' : [128],
     'max_train_time' : [100],
     'test_time' : [300],
-    'better_init_GRU': ['BiGRUCmp'],
+    'better_init_GRU': ['BiGRU'],
     'device': ['cuda'],
-    'task': [IntervalComparisonTask]
+    'task': [SequenceIngestion]
 }
 
 def build(**config):
@@ -112,7 +112,7 @@ def GRU_search(i):
             
             pred = decoder(rnn(data)[0])
 #             l = CopyFirstInput.loss(data[:,0], pred)
-            l = task.loss(pred,lab)
+            l = task.loss(lab,pred)
             l.backward()
             optimizer.step()
             optimizer.zero_grad()
@@ -137,7 +137,7 @@ def GRU_search(i):
 #             ax = CopyFirstInput.show_pred(decoder(out_seq[0]).cpu(), data[0].cpu())
 #             plt.show()
 
-            ax = task.show_pred(decoder(out_seq).cpu(),lab.cpu())#,data[0].cpu())
+            ax = task.show_pred(decoder(out_seq)[0].cpu(),lab[0].cpu(),data[0].cpu())
 
             run.log({"Prediction" : wandb.Image(plt)}, step = ep)
             plt.close()
