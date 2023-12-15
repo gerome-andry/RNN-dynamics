@@ -156,42 +156,60 @@ class SequenceIngestion(Task):
 
         
 class IntervalProductionTask(Task):
-    ### TODO : In the paper the go cue and signal are sent thorugh two different neurons. Sequence should therefore be 2 dimensional. Current implementation is 1 dimensional.
+    ### NOTE : In the paper the go pulse and signal pulses are sent thorugh two different neurons. Current implementation is 1 dimensional.
     # In this task:
-    # 1 - the network perceives the interval T between the first two pulses,
+    # 1 - the network perceives the interval T between the first two pulses of amplitude 1 and duration "pulses_duration",
     # 2 - mantains the interval during a delay of variable duration t2,
-    # 3 - receives a "go" cue,
-    # 4 - the network should produces an action after an interval of duration T.
+    # 3 - receives a "go" pulse of same aplitude and duration,
+    # 4 - the network, after a time T, should produce a step of amplitude 1 until the end of task
     
-    def get_batch(n, min_t1_length=10, max_t1_length=20, min_T_length=10,
-                  max_T_length=100, min_t2_length=10, max_t2_length=100, t_padding=10):
+    def get_batch(n, dt = 20, # dt in ms
+                  min_t1_length=60, max_t1_length=500, # in ms
+                  min_T_length=400, max_T_length=1400,# in ms
+                  min_t2_length=600, max_t2_length=1600, # in ms
+                  pulses_duration=60, padding_duration = 300, # in ms
+                  add_noise = False, noise_stdev = 0.01):
         
-        max_sequence_length = max_t1_length + max_T_length + max_t2_length + max_T_length + t_padding
-
-        t1_len = torch.randint(min_t1_length, max_t1_length, (n, 1))
-        T_len = torch.randint(min_T_length, max_T_length, (n, 1))
-        t2_len = torch.randint(min_t2_length, max_t2_length, (n, 1))
-
-        batch_indices = torch.arange(n).unsqueeze(1)  # Shape: (n, 1)
-
-        t1_indices = t1_len + torch.zeros((n, max_sequence_length), dtype=torch.long)
-        T_indices = t1_indices + T_len
-        t2_indices = T_indices + t2_len
-        target_indices = t2_indices + T_len
+        pulses_duration_ts = pulses_duration // dt
+        
+        max_sequence_length = max_t1_length + pulses_duration + max_T_length + pulses_duration + max_t2_length + max_T_length + padding_duration
+        max_sequence_length //= dt
+        
+        t1_len = torch.randint(min_t1_length, max_t1_length, (n, 1)) // dt
+        T_len = torch.randint(min_T_length, max_T_length, (n, 1))    // dt 
+        t2_len = torch.randint(min_t2_length, max_t2_length, (n, 1)) // dt
+        
+        pulse_1_begin_indices = t1_len + torch.zeros((n, max_sequence_length), dtype=torch.long)
+        pulse_1_end_indices = pulse_1_begin_indices + pulses_duration_ts
+        
+        pulse_2_begin_indices = pulse_1_end_indices + T_len
+        pulse_2_end_indices =  pulse_2_begin_indices + pulses_duration_ts
+        
+        pulse_go_begin_indices = pulse_2_end_indices + t2_len
+        pulse_go_end_indices = pulse_go_begin_indices + pulses_duration_ts
 
         input_sequences = torch.zeros((n, max_sequence_length, 1))
-        target_outputs = torch.zeros((n, max_sequence_length, 1))
 
-        # Create a mask for setting the continuous range between t1 and T to 1
-        mask = (torch.arange(max_sequence_length).unsqueeze(0) >= t1_indices) & (torch.arange(max_sequence_length).unsqueeze(0) < T_indices)
-        mask = mask.unsqueeze(-1).to(torch.float)
-
-        # Set the continuous range between t1 and T to 1
-        input_sequences += mask
-
-        input_sequences[batch_indices, t2_indices] = -1 # go cue
+        # Create a mask for setting the continuous range for pulse 1
+        mask_pulse_1 = (torch.arange(max_sequence_length).unsqueeze(0) >= pulse_1_begin_indices) & (torch.arange(max_sequence_length).unsqueeze(0) < pulse_1_end_indices)
+        mask_pulse_1 = mask_pulse_1.unsqueeze(-1).to(torch.float)
         
-        target_mask = (torch.arange(max_sequence_length).unsqueeze(0) >= t2_indices) & (torch.arange(max_sequence_length).unsqueeze(0) < target_indices)
+        # Create a mask for setting the continuous range for pulse 2
+        mask_pulse_2 = (torch.arange(max_sequence_length).unsqueeze(0) >= pulse_2_begin_indices) & (torch.arange(max_sequence_length).unsqueeze(0) < pulse_2_end_indices)
+        mask_pulse_2 = mask_pulse_2.unsqueeze(-1).to(torch.float)
+        
+        # Create a mask for setting the continuous range for pulse go
+        mask_pulse_go = (torch.arange(max_sequence_length).unsqueeze(0) >= pulse_go_begin_indices) & (torch.arange(max_sequence_length).unsqueeze(0) < pulse_go_end_indices)
+        mask_pulse_go = mask_pulse_go.unsqueeze(-1).to(torch.float)
+
+        input_sequences += mask_pulse_1 + mask_pulse_2 + mask_pulse_go
+        if add_noise:
+            input_sequences = torch.normal(input_sequences, noise_stdev)
+        
+        target_outputs = torch.zeros((n, max_sequence_length, 1))
+        target_indices = pulse_go_end_indices + T_len
+        
+        target_mask = (torch.arange(max_sequence_length).unsqueeze(0) >= target_indices)
         target_mask = target_mask.unsqueeze(-1).to(torch.float)
 
         # Set the continuous range between t2_indices and target_indices to 1 in the target sequence
@@ -233,50 +251,57 @@ class IntervalProductionTask(Task):
         
         
 class IntervalComparisonTask(Task):
-    ### TODO : In the paper the go cue and signal are sent thorugh two different neurons. Sequence should therefore be 2 dimensional. Current implementation is 1 dimensional.
+    ### NOTE : In the paper the each pulse is sent thorugh a different neuron (2 inputs). Current implementation is 1 dimensional.
     
     # In this task:
-    # 1 - the network perceives the interval T1 between the first two pulses,
+    # 1 - the network perceives a pulse of duration T1,
     # 2 - mantains the interval during a delay of variable duration t2,
-    # 3 - the network perceives a second interval T2 between two pulses,
-    # 4 - the network waits for the go signal after a random time t3
-    # 5 - the network decides if T1 >= T2 (output 1) or T1 > T2 (output -1).
+    # 3 - the network perceives a second pulse of duration T2,
+    # 5 - at the offset of T2 the network decides if T1 >= T2 (step to 1) or T1 > T2 (step to -1).
     
-    def get_batch(n, min_t1_length=10, max_t1_length=20,
-                     min_T_length=10, max_T_length=100,
-                     min_t2_length=10, max_t2_length=100,
-                     min_t3_length= 10, max_t3_length=20,
-                     t_padding=10):
+    def get_batch(n, dt = 20, # dt in ms
+                  min_t1_length=60, max_t1_length=500, # in ms
+                  min_T_length=400, max_T_length=1400,# in ms
+                  min_t2_length=600, max_t2_length=1600, # in ms
+                  padding_duration = 300, # in ms
+                  add_noise = False, noise_stdev = 0.01):
         
-        max_sequence_length = max_t1_length + max_T_length + max_t2_length + max_T_length + max_t3_length+ t_padding
+        max_sequence_length = max_t1_length + max_T_length + max_t2_length + max_T_length + padding_duration
+        max_sequence_length //= dt
+        
+        t1_len = torch.randint(min_t1_length, max_t1_length, (n, 1)) // dt
+        T1_len = torch.randint(min_T_length, max_T_length, (n, 1))   // dt 
+        t2_len = torch.randint(min_t2_length, max_t2_length, (n, 1)) // dt
+        T2_len = torch.randint(min_T_length, max_T_length, (n, 1))   // dt 
+        
+        pulse_1_begin_indices = t1_len + torch.zeros((n, max_sequence_length), dtype=torch.long)
+        pulse_1_end_indices   = pulse_1_begin_indices + T1_len
+    
+        pulse_2_begin_indices  =  pulse_1_end_indices + t2_len
+        pulse_2_end_indices    = pulse_2_begin_indices + T2_len
 
-        t1_len = torch.randint(min_t1_length, max_t1_length, (n, 1))
-        T1_len = torch.randint(min_T_length, max_T_length, (n, 1))
-        t2_len = torch.randint(min_t2_length, max_t2_length, (n, 1))
-        T2_len = torch.randint(min_T_length, max_T_length, (n, 1))
-        t3_len = torch.randint(min_t3_length, max_t3_length, (n, 1))
-
-        batch_indices = torch.arange(n).unsqueeze(1)  # Shape: (n, 1)
-        
-        t1_indices = t1_len + torch.zeros((n, max_sequence_length), dtype=torch.long)
-        T1_indices = t1_indices + T1_len
-        t2_indices = T1_indices + t2_len
-        T2_indices = t2_indices + T2_len
-        t3_indices = T2_indices + t3_len
-        
         input_sequences = torch.zeros((n, max_sequence_length, 1))
-        input_sequences[batch_indices, t1_indices] = 1
-        input_sequences[batch_indices, T1_indices] = 1
-        input_sequences[batch_indices, t2_indices] = 1
-        input_sequences[batch_indices, T2_indices] = 1
-        input_sequences[batch_indices, t3_indices] = 1
+
+        # Create a mask for setting the continuous range for pulse 1
+        mask_pulse_1 = (torch.arange(max_sequence_length).unsqueeze(0) >= pulse_1_begin_indices) & (torch.arange(max_sequence_length).unsqueeze(0) < pulse_1_end_indices)
+        mask_pulse_1 = mask_pulse_1.unsqueeze(-1).to(torch.float)
+        
+        # Create a mask for setting the continuous range for pulse 2
+        mask_pulse_2 = (torch.arange(max_sequence_length).unsqueeze(0) >= pulse_2_begin_indices) & (torch.arange(max_sequence_length).unsqueeze(0) < pulse_2_end_indices)
+        mask_pulse_2 = mask_pulse_2.unsqueeze(-1).to(torch.float)
+        
+        input_sequences += mask_pulse_1 + mask_pulse_2
+        
+        if add_noise:
+            input_sequences = torch.normal(input_sequences, noise_stdev)
         
         target_outputs = torch.zeros((n, max_sequence_length, 1))
         comparison_result = torch.where(torch.gt(T1_len, T2_len), 1, -1)
         
-        for i in range(n):
-            target_outputs[i, t3_indices[i][0]:] = comparison_result[i].float() 
-
+        # Create a mask for target
+        mask_target = (torch.arange(max_sequence_length).unsqueeze(0) >= pulse_2_end_indices)
+        mask_target = mask_target.unsqueeze(-1).to(torch.float)
+        target_outputs = comparison_result.view(n, 1, 1) * mask_target
         return input_sequences, target_outputs
     
     def loss(target, pred):
@@ -332,9 +357,9 @@ class TimedSpatialReproductionTask(Task):
 if __name__ == '__main__':
     
     ### test of Interval production task
-    batch_input, batch_target = IntervalProductionTask.get_batch(5)
-    IntervalProductionTask.plot_sequences(batch_input,batch_target)
+    #batch_input, batch_target = IntervalProductionTask.get_batch(5)
+    #IntervalProductionTask.plot_sequences(batch_input,batch_target)
     
     ### test of Interval comparison task
-    #batch_input, batch_target = IntervalComparisonTask.get_batch(5)
-    #IntervalComparisonTask.plot_sequences(batch_input,batch_target)
+    batch_input, batch_target = IntervalComparisonTask.get_batch(5)
+    IntervalComparisonTask.plot_sequences(batch_input,batch_target)
