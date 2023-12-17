@@ -360,9 +360,6 @@ class TimedSpatialReproductionTask(Task):
         
         pulses_duration_ts = pulses_duration // dt
         
-        max_sequence_length = max_t1_length + pulses_duration + max_T_length + pulses_duration + max_t2_length + max_T_length + padding_duration
-        max_sequence_length //= dt
-        
         t1_len = torch.randint(min_t1_length, max_t1_length, (n, 1)) // dt
         T_len = torch.randint(min_T_length, max_T_length, (n, 1))    // dt 
         t2_len = torch.randint(min_t2_length, max_t2_length, (n, 1)) // dt
@@ -444,7 +441,100 @@ class TimedSpatialReproductionTask(Task):
             plt.tight_layout()
             plt.show()
 
+class TimedDecisionMakingTask(Task): 
     
+    ### In this task the network receives scalar signals from 3 different channels.
+    # It receives 2 different amplitudes in the first 2, and a "go" pulse on the third one.
+    # The network outputs after the go signal 1 if signal 1 > signal 2, and -1 otherwise.
+    # NOTE : in the original task the output is on 2 channels
+    
+    def get_batch(n, dt = 20, # dt in ms
+                min_t1_length=60, max_t1_length=500, # in ms
+                min_T_length=400, max_T_length=1400,# in ms
+                min_t2_length=600, max_t2_length=1600, # in ms
+                pulses_duration=60, padding_duration = 300, # in ms
+                add_noise = False, noise_stdev = 0.01):
+        
+        max_sequence_length = max_t1_length + max_T_length + max_t2_length + pulses_duration + padding_duration
+        max_sequence_length //= dt
+        
+        pulses_duration_ts = pulses_duration // dt
+        
+        average_strength = (0.8 - 1.2) * torch.rand((n,1)) + 1.2
+
+        difference_values = torch.tensor([-0.08, -0.04, -0.02, -0.01, 0.01, 0.02, 0.04, 0.08])  # Values for c
+        differences = difference_values[torch.randint(low = 0, high = len(difference_values),size = (n,1))]
+
+        stimuli_A1 = average_strength + differences
+        stimuli_A2 = average_strength - differences        
+        
+        t1_len = torch.randint(min_t1_length, max_t1_length, (n, 1)) // dt
+        T_len  = torch.randint(min_T_length, max_T_length, (n, 1))    // dt 
+        t2_len = torch.randint(min_t2_length, max_t2_length, (n, 1)) // dt
+        
+        pulse_1_begin_indices = t1_len + torch.zeros((n, max_sequence_length), dtype=torch.long)
+        pulse_1_end_indices = pulse_1_begin_indices + T_len
+        
+        pulse_2_begin_indices = pulse_1_end_indices + t2_len
+        pulse_2_end_indices =  pulse_2_begin_indices + pulses_duration_ts
+        
+        mask_pulse_1 = (torch.arange(max_sequence_length).unsqueeze(0) >= pulse_1_begin_indices) & (torch.arange(max_sequence_length).unsqueeze(0) < pulse_1_end_indices)
+        
+        #mask_pulse_1 = mask_pulse_1.unsqueeze(-1).to(torch.float)
+        
+        mask_pulse_2 = (torch.arange(max_sequence_length).unsqueeze(0) >= pulse_2_begin_indices) & (torch.arange(max_sequence_length).unsqueeze(0) < pulse_2_end_indices)
+        print("presqueez", mask_pulse_2.shape)
+        
+        #mask_pulse_2 = mask_pulse_1.unsqueeze(-1).to(torch.float)
+        print("postqueez",mask_pulse_2.shape)
+        
+        inputs_sequences = torch.zeros((n,max_sequence_length,3))
+        
+        inputs_sequences[:,:,2] += mask_pulse_2 
+        inputs_sequences[:,:,0] += stimuli_A1 * mask_pulse_1
+
+        inputs_sequences[:,:,1] += stimuli_A2 * mask_pulse_1
+        
+        
+        if add_noise:
+            input_sequences = torch.normal(input_sequences, noise_stdev)
+        
+        target_outputs = torch.zeros((n, max_sequence_length, 1))
+        comparison_result = torch.where(torch.gt(stimuli_A1, stimuli_A2), 1, -1)
+        
+        # Create a mask for target
+        mask_target = (torch.arange(max_sequence_length).unsqueeze(0) > pulse_2_end_indices)
+        mask_target = mask_target.unsqueeze(-1).to(torch.float)
+        target_outputs = comparison_result.view(n, 1, 1) * mask_target
+        
+        return inputs_sequences, target_outputs
+        
+    def loss(target, pred):
+        return ((target - pred)**2).mean()
+    
+    def plot_sequences(batch_input, batch_target):
+        batch_size = batch_input.shape[0]
+        max_sequence_length = batch_input.shape[1]
+
+        for i in range(batch_size):
+            fig, axs = plt.subplots(2, 1, figsize=(8, 6))
+
+            axs[0].plot(batch_input[i, :, 0], label='Stimuli A1')
+            axs[0].plot(batch_input[i, :, 1], label='Stimuli A2')
+            axs[0].plot(batch_input[i, :, 2], label='Go signal')
+            axs[0].set_title(f'Sequence {i+1} Input')
+            axs[0].set_xlabel('Time Steps')
+            axs[0].set_ylabel('Strength')
+            axs[0].legend()
+
+            axs[1].plot(batch_target[i, :, 0], label='Target')
+            axs[1].set_title(f'Sequence {i+1} Target')
+            axs[1].set_xlabel('Time Steps')
+            axs[1].set_ylabel('Comparison Result')
+            axs[1].legend()
+
+            plt.tight_layout()
+            plt.show()
 if __name__ == '__main__':
     
     ### test of Interval production task
@@ -460,4 +550,5 @@ if __name__ == '__main__':
     #TimedSpatialReproductionTask.plot_sequences(batch_input,batch_target)
     
     ###
-    
+    batch_input, batch_target = TimedDecisionMakingTask.get_batch(5)
+    TimedDecisionMakingTask.plot_sequences(batch_input,batch_target)
