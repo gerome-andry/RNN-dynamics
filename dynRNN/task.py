@@ -80,7 +80,7 @@ class FreqDiscr(Task):
             
             label[i,in_delay+27+47+10:] = s1==s2
         
-        return data.unsqueeze(-1),label
+        return data.unsqueeze(-1),label.unsqueeze(-1)
         
     def loss(target, pred):
         return ((target - pred)**2).mean()

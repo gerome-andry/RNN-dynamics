@@ -20,12 +20,12 @@ CONFIG = {
     'epochs' : [512],
     'diff_time_per_epoch' : [512],
     'lr': [1e-3],
-    'mem_size' : [128],
+    'mem_size' : [16],
     'max_train_time' : [100],
     'test_time' : [300],
-    'better_init_GRU': ['BiGRU'],
+    'better_init_GRU': ['GRUf'],
     'device': ['cuda'],
-    'task': [SequenceIngestion]
+    'task': [FreqDiscr]
 }
 
 def build(**config):
